@@ -1,6 +1,6 @@
 module github.com/KishorPokharel/wrapl
 
-go 1.24.1
+go 1.24.3
 
 require github.com/chzyer/readline v1.5.1
 
