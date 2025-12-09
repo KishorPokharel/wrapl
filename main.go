@@ -15,14 +15,15 @@ func main() {
 	var debug bool
 	var commandTemplate string
 	var historyFile string
+	var pipeOut string
 
 	flag.BoolVar(&debug, "debug", false, "Enable debug mode")
 	flag.StringVar(&commandTemplate, "command", "", "command with {{}} placeholder")
 	flag.StringVar(&historyFile, "history-file", "", "path to history file")
+	flag.StringVar(&pipeOut, "pipe-out", "", "pipe output through this command (e.g., 'glow' or 'jq .')")
 	flag.Parse()
 
 	if commandTemplate == "" {
-
 		fmt.Fprintf(os.Stderr, "Error: empty command\n")
 		fmt.Fprintf(os.Stderr, "\nUsage: \n")
 		flag.PrintDefaults()
@@ -71,12 +72,56 @@ func main() {
 		if debug {
 			fmt.Println("CMD:", cmdStr)
 		}
-		cmd := exec.Command("bash", "-c", cmdStr)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
 
-		if err := cmd.Run(); err != nil {
-			fmt.Fprintf(os.Stderr, "ERR: %v\n", err)
+		cmd := exec.Command("bash", "-c", cmdStr)
+		if pipeOut != "" {
+			if err := runWithPipe(cmd, pipeOut, debug); err != nil {
+				fmt.Fprintf(os.Stderr, "ERR: %v\n", err)
+			}
+		} else {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err != nil {
+				fmt.Fprintf(os.Stderr, "ERR: %v\n", err)
+			}
 		}
 	}
+}
+
+// runWithPipe executes cmd and pipes its output through pipeCmd
+func runWithPipe(cmd *exec.Cmd, pipeCmd string, debug bool) error {
+	pipe := exec.Command("bash", "-c", pipeCmd)
+	if debug {
+		fmt.Println("PIPE:", pipeCmd)
+	}
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stdout pipe: %w", err)
+	}
+
+	pipe.Stdin = stdout
+	pipe.Stdout = os.Stdout
+	pipe.Stderr = os.Stderr
+	cmd.Stderr = os.Stderr
+
+	if err := pipe.Start(); err != nil {
+		return fmt.Errorf("failed to start pipe command: %w", err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start main command: %w", err)
+	}
+
+	if err := cmd.Wait(); err != nil {
+		stdout.Close()
+		pipe.Wait()
+		return fmt.Errorf("main command failed: %w", err)
+	}
+
+	if err := pipe.Wait(); err != nil {
+		return fmt.Errorf("pipe command failed: %w", err)
+	}
+
+	return nil
 }
