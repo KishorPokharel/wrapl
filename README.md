@@ -17,14 +17,14 @@ go install github.com/KishorPokharel/wrapl@latest
 ## Usage
 
 ```bash
-wrapl "npx wrangler d1 execute my-database --remote --env uat --command \"{{}}\""
+wrapl -command="npx wrangler d1 execute my-database --remote --env uat --command \"{{}}\""
 ```
 This launches an interactive shell. Type SQL queries, and wrapl will run the full command with your input substituted into {{}}.
 
 Example:
 
 ```bash
-$ wrapl "npx wrangler d1 execute my-database --remote --env uat --command \"{{}}\""
+$ wrapl -command="npx wrangler d1 execute my-database --remote --env uat --command \"{{}}\""
 
 REPL started. Type 'exit' to quit.
 > SELECT * FROM notes;
